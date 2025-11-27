@@ -1,5 +1,3 @@
-Albatta, mana shu formatda, to'liq Markdown sintaksisidan foydalanilgan **README.md** fayli:
-
 # 📋 Navbat Boshqaruvi Telegram Boti va Google Sheets Integratsiyasi
 
 Ushbu loyiha **Google Apps Script (GAS)** yordamida yaratilgan bo'lib, talabalarning/mijozlarning xizmat ko'rsatish navbatini **Telegram** orqali boshqarish va ma'lumotlarni real vaqt rejimida **Google Sheets**'da saqlash, shuningdek, Sheets yon paneli orqali boshqarish imkonini beradi.
