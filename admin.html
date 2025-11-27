@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #343a40; }
+        .header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        .header h4 { margin: 0; color: #007bff; font-weight: 700; font-size: 1.1rem; }
+        .card { background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; margin-bottom: 10px; box-shadow: 0 0 5px rgba(0,0,0,0.05); }
+        .card-title { font-weight: 700; margin-bottom: 5px; font-size: 0.95rem; color: #495057; display: flex; justify-content: space-between; align-items: center; }
+        .status-pill { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+        .status-Kutmoqda { background-color: #ffe0b2; color: #e65100; }
+        .status-Qabul { background-color: #e3f2fd; color: #1e88e5; }
+        .status-Bekor { background-color: #f8d7da; color: #721c24; }
+        .buttons { margin-top: 8px; display: flex; gap: 5px; }
+        .btn { padding: 5px 8px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem; flex-grow: 1; transition: background-color 0.2s; }
+        .btn-accept { background-color: #28a745; color: white; }
+        .btn-cancel { background-color: #dc3545; color: white; }
+        .btn-finish { background-color: #007bff; color: white; }
+        .btn-refresh { display: block; width: 100%; margin-top: 15px; padding: 8px; background-color: #6c757d; color: white; }
+        .loading { text-align: center; color: #007bff; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h4>Navbat Boshqaruvi Paneli</h4>
+    </div>
+    <div class="stats card">
+        <div class="card-title">Umumiy: <span id="stat-jami">0</span></div>
+        <div class="card-title">Kutayotgan: <span id="stat-kutmoqda" style="color:#e65100;">0</span></div>
+        <div class="card-title">Qabulda: <span id="stat-jarayonda" style="color:#1e88e5;">0</span></div>
+    </div>
+
+    <div id="queue-list">
+        <div class="loading">Ma'lumotlar yuklanmoqda...</div>
+    </div>
+
+    <button class="btn btn-refresh" onclick="loadDashboardData()">🔄 Yangilash</button>
+
+    <script>
+        // Apps Script funksiyasini chaqirish
+        function loadDashboardData() {
+            document.getElementById('queue-list').innerHTML = '<div class="loading">Yuklanmoqda...</div>';
+            google.script.run
+                .withSuccessHandler(renderDashboard)
+                .withFailureHandler(handleError)
+                .sendAdminData();
+        }
+
+        function renderDashboard(dataJSON) {
+            const data = JSON.parse(dataJSON);
+            document.getElementById('stat-jami').textContent = data.stats.jami;
+            document.getElementById('stat-kutmoqda').textContent = data.stats.kutmoqda;
+            document.getElementById('stat-jarayonda').textContent = data.stats.jarayonda;
+
+            const listDiv = document.getElementById('queue-list');
+            listDiv.innerHTML = '';
+
+            if (data.calls.length === 0) {
+                listDiv.innerHTML = '<div style="text-align:center; padding: 20px;">Faol navbatlar mavjud emas.</div>';
+                return;
+            }
+
+            // Faqat Kutmoqda va Qabul Qilinmoqda navbatlarini ko'rsatish
+            const activeCalls = data.calls.filter(call => call.holat === 'Kutmoqda' || call.holat === 'Qabul Qilinmoqda');
+            
+            activeCalls.forEach(call => {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                let statusClass = '';
+                if (call.holat === 'Kutmoqda') statusClass = 'status-Kutmoqda';
+                else if (call.holat === 'Qabul Qilinmoqda') statusClass = 'status-Qabul';
+                else if (call.holat === 'Bekor Qilindi') statusClass = 'status-Bekor';
+                
+                let buttonsHtml = '';
+                if (call.holat === 'Kutmoqda') {
+                    buttonsHtml = `
+                        <button class="btn btn-accept" onclick="performAction(${call.id}, 'accept')">✅ Qabul qilish</button>
+                        <button class="btn btn-cancel" onclick="performAction(${call.id}, 'cancel')">❌ Bekor qilish</button>
+                    `;
+                } else if (call.holat === 'Qabul Qilinmoqda') {
+                    buttonsHtml = `<button class="btn btn-finish" onclick="performAction(${call.id}, 'finish')">➡️ Tugatish</button>`;
+                }
+
+                card.innerHTML = `
+                    <div class="card-title">
+                        #${call.id} - ${call.masul.split(' ')[0]}
+                        <span class="status-pill ${statusClass}">${call.holat}</span>
+                    </div>
+                    <div>Xizmat: ${call.bolum.substring(0, 30)}...</div>
+                    <div class="buttons">${buttonsHtml}</div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        function performAction(queueId, action) {
+            const confirmMsg = action === 'accept' 
+                ? `Navbat #${queueId} ni qabul qilishni tasdiqlaysizmi? Talabaga xabar boradi.`
+                : action === 'cancel'
+                ? `Navbat #${queueId} ni bekor qilishni tasdiqlaysizmi?`
+                : `Navbat #${queueId} ni tugatishni tasdiqlaysizmi?`;
+                
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            // Statusni ko'rsatish
+            document.getElementById('queue-list').innerHTML = `<div class="loading">#${queueId} uchun amal bajarilmoqda...</div>`;
+
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    alert(result.message);
+                    loadDashboardData(); // Yangilash
+                })
+                .withFailureHandler(handleError)
+                .manageQueueActionSimple(queueId, action); // Sidebar uchun soddalashtirilgan funksiyani chaqiramiz
+        }
+
+        function handleError(error) {
+            const listDiv = document.getElementById('queue-list');
+            listDiv.innerHTML = `<div style="color: red; padding: 10px;">Xatolik: ${error.message}. Iltimos, kodni yoki Sheets ustunlarini tekshiring.</div>`;
+            document.getElementById('stat-jami').textContent = 'X';
+        }
+
+        window.onload = loadDashboardData;
+    </script>
+</body>
+</html>
